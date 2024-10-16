@@ -1,0 +1,168 @@
+import tkinter as tk
+import random
+
+# Definition der Tetrominos und Farben
+tetrominos = [
+    [(0, 0), (1, 0), (0, 1), (1, 1)],  # Square
+    [(0, 0), (1, 0), (2, 0), (3, 0)],  # Line
+    [(0, 0), (0, 1), (0, 2), (1, 2)],  # L
+    [(0, 0), (0, 1), (0, 2), (-1, 2)], # Reverse L
+    [(0, 0), (0, 1), (1, 1), (1, 2)],  # S
+    [(0, 0), (0, 1), (-1, 1), (-1, 2)],# Z
+    [(0, 0), (1, 0), (2, 0), (1, 1)]   # T
+]
+
+# Farben für die Tetrominos
+farben = ["red", "blue", "green", "yellow", "purple", "cyan", "orange"]
+
+class TetrisGUI:
+    def __init__(self, master, breite, höhe, feld_größe):
+        self.master = master
+        self.breite = breite
+        self.höhe = höhe
+        self.feld_größe = feld_größe
+        self.highscore = 0
+        self.init_game()
+        
+        # Reset Button
+        self.reset_button = tk.Button(master, text="Reset", command=self.reset_game)
+        self.reset_button.pack()
+
+    def init_game(self):
+        self.raster = [[None for _ in range(self.breite)] for _ in range(self.höhe)]
+        self.aktuelles_tetromino = None
+        self.aktuelle_position = None
+        self.tetromino_ids = []
+        self.punkte = 0
+
+        self.canvas = tk.Canvas(self.master, width=self.breite*(self.feld_größe+1), height=self.höhe*(self.feld_größe+1))
+        self.canvas.pack()
+
+        self.punkte_label = tk.Label(self.master, text=f"Punkte: {self.punkte}")
+        self.punkte_label.pack()
+
+        self.highscore_label = tk.Label(self.master, text=f"Highscore: {self.highscore}")
+        self.highscore_label.pack()
+
+        for i in range(self.breite + 1):
+            self.canvas.create_line(i*(self.feld_größe+1), 0, i*(self.feld_größe+1), self.höhe*(self.feld_größe+1), fill="black")
+        for j in range(self.höhe + 1):
+            self.canvas.create_line(0, j*(self.feld_größe+1), self.breite*(self.feld_größe+1), j*(self.feld_größe+1), fill="black")
+
+        self.tetromino_queue = random.sample(tetrominos, len(tetrominos))
+        self.neues_tetromino()
+
+        self.master.bind("<Left>", lambda event: self.bewege_links())
+        self.master.bind("<Right>", lambda event: self.bewege_rechts())
+        self.master.bind("<Down>", lambda event: self.bewege_unten())
+        self.master.bind("<Up>", lambda event: self.drehe_tetromino())
+
+    def reset_game(self):
+        self.canvas.destroy()
+        self.punkte_label.destroy()
+        self.init_game()
+
+    def neues_tetromino(self):
+        if not self.tetromino_queue:
+            self.tetromino_queue = random.sample(tetrominos, len(tetrominos))
+        self.aktuelles_tetromino = self.tetromino_queue.pop()
+        self.aktuelle_position = (self.breite // 2, 1)  # Start position
+        self.tetromino_ids = []
+        farbe = farben[tetrominos.index(self.aktuelles_tetromino)]
+        for x, y in self.aktuelles_tetromino:
+            id = self.canvas.create_rectangle((self.aktuelle_position[0] + x) * (self.feld_größe + 1), 
+                                              (self.aktuelle_position[1] + y) * (self.feld_größe + 1), 
+                                              (self.aktuelle_position[0] + x + 1) * (self.feld_größe + 1), 
+                                              (self.aktuelle_position[1] + y + 1) * (self.feld_größe + 1), 
+                                              fill=farbe)
+            self.tetromino_ids.append(id)
+        self.bewege_tetromino()
+
+    def bewege_tetromino(self):
+        if self.kann_bewegen(0, 1):
+            self.aktuelle_position = (self.aktuelle_position[0], self.aktuelle_position[1] + 1)
+            for id in self.tetromino_ids:
+                self.canvas.move(id, 0, self.feld_größe + 1)
+            self.master.after(500, self.bewege_tetromino)
+        else:
+            self.verschmelze_tetromino()
+            self.prüfe_reihe_voll()
+            self.neues_tetromino()
+
+    def kann_bewegen(self, dx, dy):
+        for x, y in self.aktuelles_tetromino:
+            new_x = self.aktuelle_position[0] + x + dx
+            new_y = self.aktuelle_position[1] + y + dy
+            if new_x < 0 or new_x >= self.breite or new_y >= self.höhe:
+                return False
+            if self.raster[new_y][new_x] is not None:
+                return False
+        return True
+
+    def verschmelze_tetromino(self):
+        for x, y in self.aktuelles_tetromino:
+            self.raster[self.aktuelle_position[1] + y][self.aktuelle_position[0] + x] = self.tetromino_ids.pop(0)
+
+    def bewege_links(self):
+        if self.kann_bewegen(-1, 0):
+            self.aktuelle_position = (self.aktuelle_position[0] - 1, self.aktuelle_position[1])
+            for id in self.tetromino_ids:
+                self.canvas.move(id, -(self.feld_größe + 1), 0)
+
+    def bewege_rechts(self):
+        if self.kann_bewegen(1, 0):
+            self.aktuelle_position = (self.aktuelle_position[0] + 1, self.aktuelle_position[1])
+            for id in self.tetromino_ids:
+                self.canvas.move(id, self.feld_größe + 1, 0)
+
+    def bewege_unten(self):
+        if self.kann_bewegen(0, 1):
+            self.aktuelle_position = (self.aktuelle_position[0], self.aktuelle_position[1] + 1)
+            for id in self.tetromino_ids:
+                self.canvas.move(id, 0, self.feld_größe + 1)
+        else:
+            self.verschmelze_tetromino()
+            self.prüfe_reihe_voll()
+            self.neues_tetromino()
+
+    def drehe_tetromino(self):
+        alte_tetromino = self.aktuelles_tetromino
+        self.aktuelles_tetromino = [(-y, x) for x, y in alte_tetromino]
+        if all(self.kann_bewegen(dx, dy) for dx, dy in self.aktuelles_tetromino):
+            for id, (x, y) in zip(self.tetromino_ids, alte_tetromino):
+                self.canvas.move(id, -(self.feld_größe + 1) * x, -(self.feld_größe + 1) * y)
+            for id, (x, y) in zip(self.tetromino_ids, self.aktuelles_tetromino):
+                self.canvas.move(id, (self.feld_größe + 1) * x, (self.feld_größe + 1) * y)
+        else:
+            self.aktuelles_tetromino = alte_tetromino
+
+    def prüfe_reihe_voll(self):
+        for y in range(self.höhe):
+            if all(self.raster[y]):
+                self.punkte += 100
+                self.punkte_label.config(text=f"Punkte: {self.punkte}")
+                if self.punkte > self.highscore:
+                    self.highscore = self.punkte
+                    self.highscore_label.config(text=f"Highscore: {self.highscore}")
+                self.lösche_reihe(y)
+
+    def lösche_reihe(self, reihe):
+        for x in range(self.breite):
+            self.canvas.delete(self.raster[reihe][x])
+            self.raster[reihe][x] = None
+        self.quadrat_rutschen(reihe)
+
+    def quadrat_rutschen(self, reihe):
+        for y in range(reihe-1, -1, -1):
+            for x in range(self.breite):
+                if self.raster[y][x] is not None:
+                    quadrat_id = self.raster[y][x]
+                    self.raster[y][x] = None
+                    self.raster[y+1][x] = quadrat_id
+                    self.canvas.move(quadrat_id, 0, self.feld_größe + 1)
+
+# Beispiel Nutzung
+root = tk.Tk()
+root.title("Tetris mit Tetrominos, Highscore und Reset")
+raster_gui = TetrisGUI(root, 10, 20, 20)
+root.mainloop()

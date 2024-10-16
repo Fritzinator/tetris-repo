@@ -1,0 +1,5 @@
+print("Wilkommen zu Felix additionsrechner")
+zahl1 = input("gib eine zahl ein: ")
+zahl2 = input("gib eine weitere zahl ein: ")
+zahl3 = float(zahl1) + float(zahl2)
+print("Ergebnis " + str(zahl3))
